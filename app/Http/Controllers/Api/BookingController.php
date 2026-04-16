@@ -5,7 +5,9 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Booking;
 use App\Models\Variant;
+use App\Mail\ValuationSubmitted;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Validator;
 
 class BookingController extends Controller
@@ -45,6 +47,14 @@ class BookingController extends Controller
             'user_agent' => $request->userAgent(),
             'status' => 'pending'
         ]);
+
+        // Send Email Notification to Admin
+        try {
+            $adminEmail = env('ADMIN_EMAIL', 'info@expatcarbuyers.com');
+            Mail::to($adminEmail)->send(new ValuationSubmitted($booking));
+        } catch (\Exception $e) {
+            \Log::error("Failed to send valuation email: " . $e->getMessage());
+        }
 
         return response()->json([
             'success' => true,

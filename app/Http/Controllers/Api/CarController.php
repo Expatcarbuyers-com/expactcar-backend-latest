@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Make;
 use App\Models\CarModel;
 use App\Models\Variant;
+use App\Models\Branch;
 use Illuminate\Http\Request;
 
 class CarController extends Controller
@@ -97,43 +98,73 @@ class CarController extends Controller
             return response()->json(['success' => true, 'data' => []]);
         }
 
-        $variants = Variant::with(['model.make'])
-            ->where(function ($query) use ($q) {
-                // Determine if q is a year
-                if (is_numeric($q) && strlen($q) === 4) {
-                    $query->where('year', (int)$q);
-                } else {
-                    $query->where('name', 'ilike', "%{$q}%")
-                        ->orWhereHas('model', function ($query) use ($q) {
-                            $query->where('name', 'ilike', "%{$q}%")
-                                ->orWhereHas('make', function ($query) use ($q) {
-                                    $query->where('name', 'ilike', "%{$q}%");
-                                });
-                        });
-                }
-            })
-            ->where('is_active', true)
-            ->limit(10)
-            ->get();
+        try {
+            // Using Laravel Scout search
+            $variants = Variant::search($q)
+                ->take(10)
+                ->get();
 
-        $formatted = $variants->map(function ($v) {
-            return [
-                'id' => $v->id,
-                'name' => "{$v->year} {$v->model->make->name} {$v->model->name} {$v->name}",
-                'year' => $v->year,
-                'make' => $v->model->make->name,
-                'model' => $v->model->name,
-                'variant' => $v->name,
-                'body_type' => $v->body_type,
-                'engine' => $v->engine,
-                'transmission' => $v->transmission,
-            ];
-        });
+            // Load relationships for formatting
+            $variants->load(['model.make']);
 
-        return response()->json([
-            'success' => true,
-            'data' => $formatted
-        ]);
+            $formatted = $variants->map(function ($v) {
+                return [
+                    'id' => $v->id,
+                    'name' => "{$v->year} {$v->model->make->name} {$v->model->name} {$v->name}",
+                    'year' => $v->year,
+                    'make' => $v->model->make->name,
+                    'model' => $v->model->name,
+                    'variant' => $v->name,
+                    'body_type' => $v->body_type,
+                    'engine' => $v->engine,
+                    'transmission' => $v->transmission,
+                ];
+            });
+
+            return response()->json([
+                'success' => true,
+                'data' => $formatted
+            ]);
+        } catch (\Exception $e) {
+            // Fallback to database search if Meilisearch is unavailable
+            $variants = Variant::with(['model.make'])
+                ->where(function ($query) use ($q) {
+                    if (is_numeric($q) && strlen($q) === 4) {
+                        $query->where('year', (int)$q);
+                    } else {
+                        $query->where('name', 'ilike', "%{$q}%")
+                            ->orWhereHas('model', function ($query) use ($q) {
+                                $query->where('name', 'ilike', "%{$q}%")
+                                    ->orWhereHas('make', function ($query) use ($q) {
+                                        $query->where('name', 'ilike', "%{$q}%");
+                                    });
+                            });
+                    }
+                })
+                ->where('is_active', true)
+                ->limit(10)
+                ->get();
+
+            $formatted = $variants->map(function ($v) {
+                return [
+                    'id' => $v->id,
+                    'name' => "{$v->year} {$v->model->make->name} {$v->model->name} {$v->name}",
+                    'year' => $v->year,
+                    'make' => $v->model->make->name,
+                    'model' => $v->model->name,
+                    'variant' => $v->name,
+                    'body_type' => $v->body_type,
+                    'engine' => $v->engine,
+                    'transmission' => $v->transmission,
+                ];
+            });
+
+            return response()->json([
+                'success' => true,
+                'data' => $formatted,
+                'meta' => ['source' => 'database_fallback']
+            ]);
+        }
     }
 
     public function showBySlug($slug)
@@ -189,6 +220,22 @@ class CarController extends Controller
             ]);
         }
 
-        return response()->json(['success' => false, 'message' => 'Car data not found'], 404);
+        // 3. Try Branch (Location)
+        $branch = Branch::where('slug', $slug)
+            ->orWhere('slug', 'sell-my-car-' . $slug)
+            ->where('is_active', true)
+            ->first();
+
+        if ($branch) {
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'type' => 'location',
+                    'branch' => $branch
+                ]
+            ]);
+        }
+
+        return response()->json(['success' => false, 'message' => 'Car or location data not found'], 404);
     }
 }

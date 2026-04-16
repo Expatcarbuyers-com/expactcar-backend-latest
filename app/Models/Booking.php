@@ -20,6 +20,7 @@ class Booking extends Model
         'email',
         'utm_data',
         'status',
+        'notes',
         'zoho_lead_id',
         'ip_address',
         'user_agent'
