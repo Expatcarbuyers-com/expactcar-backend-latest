@@ -1,5 +1,11 @@
 /.phpunit.cache
 /node_modules
+
+# Meilisearch — run via Docker, never commit the binary or its data directory
+meilisearch.exe
+meilisearch
+/data.ms/
+/dumps/
 /public/build
 /public/hot
 /public/storage

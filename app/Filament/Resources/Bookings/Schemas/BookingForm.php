@@ -2,67 +2,63 @@
 
 namespace App\Filament\Resources\Bookings\Schemas;
 
+use App\Models\User;
+use Filament\Schemas\Components\Section;
+use Filament\Forms\Components\Select;
+use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Schema;
 
 class BookingForm
 {
+    // Status labels shared across form/table/infolist
+    public static array $statuses = [
+        'pending'     => 'New Lead',
+        'contacted'   => 'Contacted',
+        'appraised'   => 'Appraised',
+        'offer_made'  => 'Offer Made',
+        'closed_won'  => 'Won',
+        'closed_lost' => 'Lost',
+    ];
+
     public static function configure(Schema $schema): Schema
     {
         return $schema
             ->components([
-                \Filament\Forms\Components\Section::make('Lead Management')
+                Section::make('Lead Management')
                     ->schema([
-                        \Filament\Forms\Components\Select::make('status')
-                            ->options([
-                                'pending' => 'New Lead',
-                                'contacting' => 'Contacting',
-                                'qualified' => 'Qualified',
-                                'appointment' => 'Appointment Fixed',
-                                'inspected' => 'Inspected',
-                                'purchased' => 'Car Purchased',
-                                'closed' => 'Closed / Lost',
-                            ])
+                        Select::make('status')
+                            ->options(self::$statuses)
                             ->required()
                             ->native(false),
-                        \Filament\Forms\Components\Textarea::make('notes')
-                            ->placeholder('Add internal notes here...')
-                            ->rows(4),
+                        Select::make('assigned_to')
+                            ->label('Assigned Agent')
+                            ->options(User::pluck('name', 'id'))
+                            ->searchable()
+                            ->placeholder('Unassigned')
+                            ->native(false),
+                        Textarea::make('internal_notes')
+                            ->label('Internal Notes')
+                            ->placeholder('Add notes visible only to agents...')
+                            ->rows(4)
+                            ->columnSpanFull(),
                     ])->columns(2),
 
-                \Filament\Forms\Components\Section::make('Customer Information')
+                Section::make('Customer Information')
                     ->schema([
-                        \Filament\Forms\Components\TextInput::make('name')
-                            ->required()
-                            ->maxLength(150),
-                        \Filament\Forms\Components\TextInput::make('phone')
-                            ->tel()
-                            ->required()
-                            ->maxLength(20),
-                        \Filament\Forms\Components\TextInput::make('email')
-                            ->email()
-                            ->required()
-                            ->maxLength(200),
+                        TextInput::make('name')->required()->maxLength(150),
+                        TextInput::make('phone')->tel()->required()->maxLength(20),
+                        TextInput::make('email')->email()->required()->maxLength(200),
                     ])->columns(3),
 
-                \Filament\Forms\Components\Section::make('Car Details')
+                Section::make('Vehicle Details')
                     ->schema([
-                        \Filament\Forms\Components\TextInput::make('reference_number')
-                            ->disabled()
-                            ->dehydrated(false),
-                        \Filament\Forms\Components\TextInput::make('make_name')
-                            ->label('Make')
-                            ->disabled(),
-                        \Filament\Forms\Components\TextInput::make('model_name')
-                            ->label('Model')
-                            ->disabled(),
-                        \Filament\Forms\Components\TextInput::make('variant_name')
-                            ->label('Variant')
-                            ->disabled(),
-                        \Filament\Forms\Components\TextInput::make('year')
-                            ->disabled(),
-                        \Filament\Forms\Components\TextInput::make('mileage')
-                            ->disabled()
-                            ->suffix(' KM'),
+                        TextInput::make('reference_number')->disabled()->dehydrated(false),
+                        TextInput::make('make_name')->label('Make')->disabled()->dehydrated(false),
+                        TextInput::make('model_name')->label('Model')->disabled()->dehydrated(false),
+                        TextInput::make('variant_name')->label('Variant')->disabled()->dehydrated(false),
+                        TextInput::make('year')->disabled()->dehydrated(false),
+                        TextInput::make('mileage')->disabled()->dehydrated(false)->suffix('KM'),
                     ])->columns(3),
             ]);
     }

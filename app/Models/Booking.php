@@ -20,26 +20,53 @@ class Booking extends Model
         'email',
         'utm_data',
         'status',
-        'notes',
-        'zoho_lead_id',
+        'status_history',
+        'internal_notes',
+        'assigned_to',
         'ip_address',
-        'user_agent'
+        'user_agent',
+        'legacy_source_id',
+        'source',
     ];
 
     protected $casts = [
-        'utm_data' => 'array',
+        'utm_data'       => 'array',
+        'status_history' => 'array',
+        'year'           => 'integer',
+        'mileage'        => 'integer',
     ];
 
-    public function variant()
+    // ── Relationships ────────────────────────────────────────
+
+    public function variant(): \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
         return $this->belongsTo(Variant::class);
     }
 
-    protected static function boot()
+    public function assignedAgent(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(User::class, 'assigned_to');
+    }
+
+    // ── Scopes ───────────────────────────────────────────────
+
+    public function scopeByStatus($query, string $status)
+    {
+        return $query->where('status', $status);
+    }
+
+    public function scopeAssignedTo($query, int $userId)
+    {
+        return $query->where('assigned_to', $userId);
+    }
+
+    // ── Boot ─────────────────────────────────────────────────
+
+    protected static function boot(): void
     {
         parent::boot();
 
-        static::creating(function ($booking) {
+        static::creating(function (Booking $booking) {
             if (empty($booking->reference_number)) {
                 $booking->reference_number = 'ECB-' . strtoupper(Str::random(8));
             }

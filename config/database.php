@@ -59,6 +59,22 @@ return [
             ]) : [],
         ],
 
+        'mysql_legacy' => [
+            'driver'    => 'mysql',
+            'host'      => env('LEGACY_DB_HOST', '127.0.0.1'),
+            'port'      => env('LEGACY_DB_PORT', '3306'),
+            'database'  => env('LEGACY_DB_DATABASE', 'expatcar_legacy'),
+            'username'  => env('LEGACY_DB_USERNAME', 'root'),
+            'password'  => env('LEGACY_DB_PASSWORD', ''),
+            'charset'   => 'utf8mb4',
+            'collation' => 'utf8mb4_unicode_ci',
+            'prefix'    => '',
+            'strict'    => false,
+            'options'   => extension_loaded('pdo_mysql') ? array_filter([
+                PDO::MYSQL_ATTR_SSL_CA => env('MYSQL_ATTR_SSL_CA'),
+            ]) : [],
+        ],
+
         'mariadb' => [
             'driver' => 'mariadb',
             'url' => env('DB_URL'),

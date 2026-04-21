@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\CarModels;
 
+use App\Filament\Concerns\CatalogWriteSuperAdminOnly;
 use App\Filament\Resources\CarModels\Pages\CreateCarModel;
 use App\Filament\Resources\CarModels\Pages\EditCarModel;
 use App\Filament\Resources\CarModels\Pages\ListCarModels;
@@ -18,6 +19,8 @@ use Filament\Tables\Table;
 
 class CarModelResource extends Resource
 {
+    use CatalogWriteSuperAdminOnly;
+
     protected static ?string $model = CarModel::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;

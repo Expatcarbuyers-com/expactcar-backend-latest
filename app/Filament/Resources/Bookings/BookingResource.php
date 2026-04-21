@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Bookings;
 
+use Illuminate\Database\Eloquent\Model;
 use App\Filament\Resources\Bookings\Pages\CreateBooking;
 use App\Filament\Resources\Bookings\Pages\EditBooking;
 use App\Filament\Resources\Bookings\Pages\ListBookings;
@@ -21,8 +22,25 @@ class BookingResource extends Resource
     protected static ?string $model = Booking::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
-
+    protected static string|\UnitEnum|null $navigationGroup = 'CRM';
+    protected static ?int $navigationSort = 1;
     protected static ?string $recordTitleAttribute = 'reference_number';
+
+    // Both roles access leads; only super_admin can delete or create manually.
+    public static function canCreate(): bool
+    {
+        return auth()->user()?->isSuperAdmin() ?? false;
+    }
+
+    public static function canDelete(Model $record): bool
+    {
+        return auth()->user()?->isSuperAdmin() ?? false;
+    }
+
+    public static function canDeleteAny(): bool
+    {
+        return auth()->user()?->isSuperAdmin() ?? false;
+    }
 
     public static function form(Schema $schema): Schema
     {

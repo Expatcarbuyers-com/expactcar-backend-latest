@@ -1,41 +1,49 @@
 <?php
 
+use App\Http\Controllers\Api\BlogController;
+use App\Http\Controllers\Api\BookingController;
+use App\Http\Controllers\Api\BranchController;
+use App\Http\Controllers\Api\CarController;
+use App\Http\Controllers\Api\ContactController;
+use App\Http\Controllers\Api\RedirectController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
-use App\Http\Controllers\Api\CarController;
-use App\Http\Controllers\Api\BookingController;
-use App\Http\Controllers\Api\BlogController;
-use App\Http\Controllers\Api\ContactController;
+// ── Public API v1 ────────────────────────────────────────────────────────────
 
-Route::prefix('v1')->group(function () {
-    // Car Metadata
-    Route::get('/years', [CarController::class, 'years']);
-    Route::get('/makes', [CarController::class, 'makes']);
-    Route::get('/models', [CarController::class, 'models']);
+Route::prefix('v1')->middleware('throttle:60,1')->group(function () {
+
+    // ── Car Catalog (cascade dropdown chain) ─────────────────
+    Route::get('/years',    [CarController::class, 'years']);
+    Route::get('/makes',    [CarController::class, 'makes']);
+    Route::get('/models',   [CarController::class, 'models']);
     Route::get('/variants', [CarController::class, 'variants']);
+
+    // ── Search (Meilisearch with DB fallback) ─────────────────
     Route::get('/search', [CarController::class, 'search']);
-    Route::get('/slug/{slug}', [CarController::class, 'showBySlug']);
-    
-    // Bookings
-    Route::post('/bookings', [BookingController::class, 'store']);
 
-    // Contacts
-    Route::post('/contacts', [ContactController::class, 'store']);
+    // ── Car/Make/Model page by slug ───────────────────────────
+    Route::get('/cars/{slug}', [CarController::class, 'showBySlug']);
 
-    // Branches
-    Route::get('/branches', function() {
-        return response()->json([
-            'success' => true,
-            'data' => \App\Models\Branch::where('is_active', true)->get()
-        ]);
+    // ── URL Redirects (for Next.js 301 handling) ─────────────
+    Route::get('/redirects/{slug}', [RedirectController::class, 'show']);
+
+    // ── Branches ─────────────────────────────────────────────
+    Route::get('/branches', [BranchController::class, 'index']);
+
+    // ── Blogs ─────────────────────────────────────────────────
+    Route::get('/blogs',            [BlogController::class, 'index']);
+    Route::get('/blogs/categories', [BlogController::class, 'categories']);
+    Route::get('/blogs/{slug}',     [BlogController::class, 'show']);
+
+    // ── Lead Submissions (increased to 60 per minute for testing) ─────────
+    Route::middleware('throttle:60,1')->group(function () {
+        Route::post('/bookings', [BookingController::class, 'store']);
+        Route::post('/contacts', [ContactController::class, 'store']);
     });
-
-    // Blogs
-    Route::get('/blogs', [BlogController::class, 'index']);
-    Route::get('/blogs/{slug}', [BlogController::class, 'show']);
 });
 
+// ── Authenticated ────────────────────────────────────────────────────────────
 Route::get('/user', function (Request $request) {
     return $request->user();
 })->middleware('auth:sanctum');

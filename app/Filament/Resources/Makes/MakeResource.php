@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Makes;
 
+use App\Filament\Concerns\CatalogWriteSuperAdminOnly;
 use App\Filament\Resources\Makes\Pages\CreateMake;
 use App\Filament\Resources\Makes\Pages\EditMake;
 use App\Filament\Resources\Makes\Pages\ListMakes;
@@ -18,6 +19,8 @@ use Filament\Tables\Table;
 
 class MakeResource extends Resource
 {
+    use CatalogWriteSuperAdminOnly;
+
     protected static ?string $model = Make::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;

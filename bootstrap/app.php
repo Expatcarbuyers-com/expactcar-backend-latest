@@ -19,5 +19,8 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->statefulApi();
     })
     ->withExceptions(function (Exceptions $exceptions) {
-        //
+        // Always return JSON for any request under /api/*
+        $exceptions->shouldRenderJsonWhen(
+            fn ($request) => $request->is('api/*')
+        );
     })->create();

@@ -3,44 +3,40 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Models\Contact;
 use App\Mail\ContactInquiry;
+use App\Models\Contact;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
-use Illuminate\Support\Facades\Validator;
 
 class ContactController extends Controller
 {
-    public function store(Request $request)
+    public function store(Request $request): JsonResponse
     {
-        $validator = Validator::make($request->all(), [
-            'name' => 'required|string|max:150',
-            'email' => 'required|email|max:200',
-            'phone' => 'nullable|string|max:20',
+        $validated = $request->validate([
+            'name'    => 'required|string|max:150',
+            'email'   => 'required|email:rfc|max:200',
+            'phone'   => ['nullable', 'string', 'max:20', 'regex:/^\+?[0-9\s\-]{7,20}$/'],
             'subject' => 'nullable|string|max:200',
-            'message' => 'required|string|min:10',
+            'message' => 'required|string|min:10|max:5000',
         ]);
 
-        if ($validator->fails()) {
-            return response()->json([
-                'success' => false,
-                'errors' => $validator->errors()
-            ], 422);
-        }
+        $contact = Contact::create($validated);
 
-        $contact = Contact::create($request->all());
-
-        // Send Email Notification to Admin
         try {
-            $adminEmail = env('ADMIN_EMAIL', 'info@expatcarbuyers.com');
-            Mail::to($adminEmail)->send(new ContactInquiry($contact));
+            Mail::to(config('mail.admin_email', env('ADMIN_EMAIL')))
+                ->queue(new ContactInquiry($contact));
         } catch (\Exception $e) {
-            \Log::error("Failed to send contact inquiry email: " . $e->getMessage());
+            Log::error('ContactInquiry mail dispatch failed', [
+                'contact_id' => $contact->id,
+                'error'      => $e->getMessage(),
+            ]);
         }
 
         return response()->json([
             'success' => true,
-            'message' => 'Your message has been sent successfully. We will get back to you soon.'
+            'message' => 'Your message has been sent. We will be in touch shortly.',
         ], 201);
     }
 }

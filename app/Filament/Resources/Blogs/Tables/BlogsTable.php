@@ -2,12 +2,14 @@
 
 namespace App\Filament\Resources\Blogs\Tables;
 
+use App\Models\BlogCategory;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\ImageColumn;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 
 class BlogsTable
@@ -15,33 +17,43 @@ class BlogsTable
     public static function configure(Table $table): Table
     {
         return $table
+            ->defaultSort('published_at', 'desc')
             ->columns([
-                TextColumn::make('category_id')
-                    ->numeric()
-                    ->sortable(),
+                ImageColumn::make('cover_image')
+                    ->label('')
+                    ->height(40)
+                    ->width(60),
+
                 TextColumn::make('title')
-                    ->searchable(),
+                    ->searchable()
+                    ->weight('semibold')
+                    ->description(fn ($record) => $record->category?->name ?? '—'),
+
                 TextColumn::make('slug')
-                    ->searchable(),
-                ImageColumn::make('cover_image'),
-                TextColumn::make('meta_title')
-                    ->searchable(),
-                TextColumn::make('meta_description')
-                    ->searchable(),
+                    ->fontFamily('mono')
+                    ->color('gray')
+                    ->toggleable(isToggledHiddenByDefault: true),
+
+                TextColumn::make('status')
+                    ->label('Status')
+                    ->badge()
+                    ->getStateUsing(fn ($record) => $record->published_at ? 'published' : 'draft')
+                    ->color(fn (string $state) => match ($state) {
+                        'published' => 'success',
+                        'draft'     => 'gray',
+                    })
+                    ->formatStateUsing(fn (string $state) => ucfirst($state)),
+
                 TextColumn::make('published_at')
-                    ->dateTime()
-                    ->sortable(),
-                TextColumn::make('created_at')
-                    ->dateTime()
+                    ->label('Published')
+                    ->dateTime('d M Y')
                     ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
-                TextColumn::make('updated_at')
-                    ->dateTime()
-                    ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
+                    ->default('Draft'),
             ])
             ->filters([
-                //
+                SelectFilter::make('category_id')
+                    ->label('Category')
+                    ->options(BlogCategory::orderBy('name')->pluck('name', 'id')),
             ])
             ->recordActions([
                 ViewAction::make(),
