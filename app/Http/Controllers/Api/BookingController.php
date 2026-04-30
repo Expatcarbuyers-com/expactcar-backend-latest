@@ -19,8 +19,7 @@ class BookingController extends Controller
             'variant_id'      => 'required|integer|exists:variants,id',
             'mileage'         => 'required|string|max:100',
             'specs'           => 'required|string|max:50',
-            'car_option'      => 'required|string|max:50',
-            'paint_condition' => 'required|string|max:50',
+
             'name'            => 'required|string|max:150',
             'phone'           => ['required', 'string', 'max:20', 'regex:/^\+?[0-9\s\-]{7,20}$/'],
             'email'           => 'required|email:rfc,dns|max:200',
@@ -42,8 +41,7 @@ class BookingController extends Controller
                 'year'            => $variant->year,
                 'mileage'         => $validated['mileage'],
                 'specs'           => $validated['specs'],
-                'car_option'      => $validated['car_option'],
-                'paint_condition' => $validated['paint_condition'],
+
                 'name'            => $validated['name'],
                 'email'           => $validated['email'],
                 'utm_data'        => $validated['utm_data'] ?? null,
