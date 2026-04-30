@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\Route;
 Route::prefix('v1')->middleware('throttle:60,1')->group(function () {
 
     // ── Car Catalog (cascade dropdown chain) ─────────────────
+    Route::get('/preload',  [CarController::class, 'preload']); // years + makes for latest year in one shot
     Route::get('/years',    [CarController::class, 'years']);
     Route::get('/makes',    [CarController::class, 'makes']);
     Route::get('/models',   [CarController::class, 'models']);

@@ -32,6 +32,25 @@ class CarController extends Controller
         return "catalog:v{$this->catalogVersion()}:{$name}";
     }
 
+    private function catalogJson(mixed $data): JsonResponse
+    {
+        return response()->json(['success' => true, 'data' => $data])
+            ->header('Cache-Control', 'public, max-age=3600, s-maxage=86400');
+    }
+
+    private function makesForYear(?string $year): \Illuminate\Support\Collection
+    {
+        $query = Make::active()->orderBy('display_order')->orderBy('name');
+
+        if ($year) {
+            $query->whereHas('models.variants', fn ($q) =>
+                $q->where('year', $year)->where('is_active', true)
+            );
+        }
+
+        return $query->get(['id', 'name', 'slug', 'logo_url']);
+    }
+
     // ── GET /api/v1/years ────────────────────────────────────
 
     public function years(): JsonResponse
@@ -43,7 +62,31 @@ class CarController extends Controller
                 ->pluck('year');
         });
 
-        return response()->json(['success' => true, 'data' => $data]);
+        return $this->catalogJson($data);
+    }
+
+    // ── GET /api/v1/preload ───────────────────────────────────
+    // Returns years + makes for the latest year in one request,
+    // eliminating the waterfall of two sequential fetches on form mount.
+
+    public function preload(): JsonResponse
+    {
+        $data = Cache::remember($this->key('preload'), self::TTL_CATALOG, function () {
+            $years = Variant::where('is_active', true)
+                ->distinct()
+                ->orderByDesc('year')
+                ->pluck('year');
+
+            $latestYear = $years->first() ? (string) $years->first() : null;
+
+            return [
+                'years'       => $years,
+                'latest_year' => $latestYear,
+                'makes'       => $this->makesForYear($latestYear),
+            ];
+        });
+
+        return $this->catalogJson($data);
     }
 
     // ── GET /api/v1/makes?year= ──────────────────────────────
@@ -54,18 +97,10 @@ class CarController extends Controller
         $cacheKey = $this->key('makes:' . ($year ?? 'all'));
 
         $data = Cache::remember($cacheKey, self::TTL_CATALOG, function () use ($year) {
-            $query = Make::active()->orderBy('display_order')->orderBy('name');
-
-            if ($year) {
-                $query->whereHas('models.variants', fn ($q) =>
-                    $q->where('year', $year)->where('is_active', true)
-                );
-            }
-
-            return $query->get(['id', 'name', 'slug', 'logo_url']);
+            return $this->makesForYear($year);
         });
 
-        return response()->json(['success' => true, 'data' => $data]);
+        return $this->catalogJson($data);
     }
 
     // ── GET /api/v1/models?make_id=&year= ───────────────────
@@ -95,7 +130,7 @@ class CarController extends Controller
             return $query->get(['id', 'name', 'slug']);
         });
 
-        return response()->json(['success' => true, 'data' => $data]);
+        return $this->catalogJson($data);
     }
 
     // ── GET /api/v1/variants?model_id=&year= ────────────────
@@ -119,7 +154,7 @@ class CarController extends Controller
                 ->get(['id', 'name', 'body_type', 'engine', 'transmission', 'gcc_specs']);
         });
 
-        return response()->json(['success' => true, 'data' => $data]);
+        return $this->catalogJson($data);
     }
 
     // ── GET /api/v1/search?q= ───────────────────────────────
