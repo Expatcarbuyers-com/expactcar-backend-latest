@@ -17,8 +17,10 @@ Route::prefix('v1')->middleware('throttle:60,1')->group(function () {
     Route::get('/preload',  [CarController::class, 'preload']); // years + makes for latest year in one shot
     Route::get('/years',    [CarController::class, 'years']);
     Route::get('/makes',    [CarController::class, 'makes']);
-    Route::get('/models',   [CarController::class, 'models']);
-    Route::get('/variants', [CarController::class, 'variants']);
+    Route::get('/models',           [CarController::class, 'models']);
+    Route::get('/variants',         [CarController::class, 'variants']);
+    Route::get('/variants-by-make', [CarController::class, 'variantsByMake']);
+    Route::get('/catalog-sync',     [CarController::class, 'catalogSync']);
 
     // ── Search (Meilisearch with DB fallback) ─────────────────
     Route::get('/search', [CarController::class, 'search']);
