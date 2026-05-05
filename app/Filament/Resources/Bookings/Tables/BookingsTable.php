@@ -37,7 +37,7 @@ class BookingsTable
                 TextColumn::make('make_name')
                     ->label('Vehicle')
                     ->formatStateUsing(fn ($record) => "{$record->year} {$record->make_name} {$record->model_name}")
-                    ->description(fn ($record) => "{$record->variant_name} · " . number_format($record->mileage) . ' KM'),
+                    ->description(fn ($record) => "{$record->variant_name} · " . number_format((float) ($record->mileage ?? 0)) . ' KM'),
 
                 TextColumn::make('status')
                     ->badge()

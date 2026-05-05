@@ -10,6 +10,7 @@ use App\Models\Branch;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 
 class CarController extends Controller
 {
@@ -40,30 +41,64 @@ class CarController extends Controller
 
     private function makesForYear(?string $year): \Illuminate\Support\Collection
     {
-        $query = Make::active()->orderBy('display_order')->orderBy('name');
-
-        if ($year) {
-            $query->whereHas('models.variants', fn ($q) =>
-                $q->where('year', $year)->where('is_active', true)
-            );
+        if (!$year) {
+            return Make::active()
+                ->orderBy('display_order')
+                ->orderBy('name')
+                ->get(['id', 'name', 'slug', 'logo_url']);
         }
 
-        return $query->get(['id', 'name', 'slug', 'logo_url']);
+        // JOIN is 10-100x faster than nested whereHas('models.variants') on large tables.
+        // The nested EXISTS subquery re-scans car_models for every make row.
+        return Make::active()
+            ->join('car_models as cm', fn ($j) =>
+                $j->on('cm.make_id', '=', 'makes.id')->where('cm.is_active', true)
+            )
+            ->join('variants as v', fn ($j) =>
+                $j->on('v.model_id', '=', 'cm.id')
+                  ->where('v.year', $year)
+                  ->where('v.is_active', true)
+            )
+            ->orderBy('makes.display_order')
+            ->orderBy('makes.name')
+            ->distinct()
+            ->get(['makes.id', 'makes.name', 'makes.slug', 'makes.logo_url']);
     }
 
     private function modelsForMake(int $makeId, ?string $year): \Illuminate\Support\Collection
     {
-        $query = CarModel::active()
-            ->where('make_id', $makeId)
-            ->orderBy('name');
-
-        if ($year) {
-            $query->whereHas('variants', fn ($q) =>
-                $q->where('year', $year)->where('is_active', true)
-            );
+        if (!$year) {
+            return CarModel::active()
+                ->where('make_id', $makeId)
+                ->orderBy('name')
+                ->get(['id', 'name', 'slug']);
         }
 
-        return $query->get(['id', 'name', 'slug']);
+        return CarModel::active()
+            ->where('car_models.make_id', $makeId)
+            ->join('variants as v', fn ($j) =>
+                $j->on('v.model_id', '=', 'car_models.id')
+                  ->where('v.year', $year)
+                  ->where('v.is_active', true)
+            )
+            ->orderBy('car_models.name')
+            ->distinct()
+            ->get(['car_models.id', 'car_models.name', 'car_models.slug']);
+    }
+
+    // Batch-loads models for multiple makes in a single query.
+    private function modelsForMakes(array $makeIds, string $year): \Illuminate\Support\Collection
+    {
+        return CarModel::active()
+            ->whereIn('car_models.make_id', $makeIds)
+            ->join('variants as v', fn ($j) =>
+                $j->on('v.model_id', '=', 'car_models.id')
+                  ->where('v.year', $year)
+                  ->where('v.is_active', true)
+            )
+            ->orderBy('car_models.name')
+            ->distinct()
+            ->get(['car_models.id', 'car_models.make_id', 'car_models.name', 'car_models.slug']);
     }
 
     // ── GET /api/v1/catalog-sync ────────────────────────────
@@ -74,24 +109,16 @@ class CarController extends Controller
     public function catalogSync(): JsonResponse
     {
         $data = Cache::remember($this->key('full_catalog_sync'), self::TTL_CATALOG, function () {
-            // Using a flat array of variants with minimal keys to save bytes
-            // Structure: [year => [make_id => [model_id => [variants]]]]
+            // Single JOIN query — avoids loading model/make relations per-variant (N+1 in memory).
+            $rows = DB::table('variants as v')
+                ->join('car_models as cm', 'cm.id', '=', 'v.model_id')
+                ->where('v.is_active', true)
+                ->select('v.id', 'v.model_id', 'v.year', 'v.name', 'v.engine', 'v.transmission', 'cm.make_id')
+                ->get();
+
             $catalog = [];
-            
-            $variants = Variant::where('is_active', true)
-                ->with('model.make')
-                ->get(['id', 'model_id', 'year', 'name', 'engine', 'transmission']);
-
-            foreach ($variants as $v) {
-                $y = $v->year;
-                $mk = $v->model->make_id;
-                $md = $v->model_id;
-
-                if (!isset($catalog[$y])) $catalog[$y] = [];
-                if (!isset($catalog[$y][$mk])) $catalog[$y][$mk] = [];
-                if (!isset($catalog[$y][$mk][$md])) $catalog[$y][$mk][$md] = [];
-
-                $catalog[$y][$mk][$md][] = [
+            foreach ($rows as $v) {
+                $catalog[$v->year][$v->make_id][$v->model_id][] = [
                     'i' => $v->id,
                     'n' => $v->name,
                     'e' => $v->engine,
@@ -99,8 +126,7 @@ class CarController extends Controller
                 ];
             }
 
-            // Also need the make/model names and slugs mapping
-            $makes = Make::active()->get(['id', 'name', 'slug']);
+            $makes  = Make::active()->get(['id', 'name', 'slug']);
             $models = CarModel::active()->get(['id', 'make_id', 'name', 'slug']);
 
             return [
@@ -143,11 +169,15 @@ class CarController extends Controller
             $latestYear = $years->first() ? (string) $years->first() : null;
             $makes = $this->makesForYear($latestYear);
 
-            // Pre-calculate models for top 20 makes of the latest year
-            $topModels = [];
-            foreach ($makes->take(20) as $make) {
-                $topModels[$make->id] = $this->modelsForMake($make->id, $latestYear);
-            }
+            // Batch-load models for top 20 makes in a single query instead of 20 round-trips.
+            $topMakeIds = $makes->take(20)->pluck('id')->all();
+            $batchModels = $latestYear
+                ? $this->modelsForMakes($topMakeIds, $latestYear)
+                : collect();
+
+            $topModels = $batchModels->groupBy('make_id')
+                ->map(fn ($g) => $g->values())
+                ->toArray();
 
             return [
                 'years'       => $years,
@@ -177,10 +207,11 @@ class CarController extends Controller
         $cacheKey = $this->key("variants_by_make:{$makeId}:{$year}");
 
         $data = Cache::remember($cacheKey, self::TTL_CATALOG, function () use ($makeId, $year) {
-            return Variant::whereHas('model', fn($q) => $q->where('make_id', $makeId))
-                ->where('year', $year)
-                ->where('is_active', true)
-                ->get(['id', 'model_id', 'name', 'body_type', 'engine', 'transmission', 'gcc_specs']);
+            return Variant::join('car_models as cm', 'cm.id', '=', 'variants.model_id')
+                ->where('cm.make_id', $makeId)
+                ->where('variants.year', $year)
+                ->where('variants.is_active', true)
+                ->get(['variants.id', 'variants.model_id', 'variants.name', 'variants.body_type', 'variants.engine', 'variants.transmission', 'variants.gcc_specs']);
         });
 
         return $this->catalogJson($data);

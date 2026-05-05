@@ -66,7 +66,7 @@ class BookingInfolist
                         TextEntry::make('model_name')->label('Model'),
                         TextEntry::make('variant_name')->label('Variant'),
                         TextEntry::make('mileage')
-                            ->formatStateUsing(fn ($state) => number_format($state) . ' KM'),
+                            ->formatStateUsing(fn ($state) => number_format((float) ($state ?? 0)) . ' KM'),
                     ]),
 
                 // ── Status Timeline ──────────────────────────────────────

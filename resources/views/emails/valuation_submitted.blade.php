@@ -39,7 +39,7 @@
             </div>
             <div class="field">
                 <span class="label">Mileage:</span>
-                <span class="value">{{ number_format($booking->mileage) }} KM</span>
+                <span class="value">{{ number_format((float) ($booking->mileage ?? 0)) }} KM</span>
             </div>
             
             <hr>
