@@ -130,7 +130,7 @@ class BlogForm
                                             ->schema([
                                                 TextInput::make('title')
                                                     ->required()
-                                                    ->live(onBlur: true)
+                                                    ->live(debounce: 500)
                                                     ->afterStateUpdated(fn ($state, callable $set) =>
                                                         $set('anchor', Str::slug($state))
                                                     )
@@ -140,6 +140,8 @@ class BlogForm
                                                 TextInput::make('anchor')
                                                     ->required()
                                                     ->prefix('#')
+                                                    ->suffixIcon('heroicon-o-arrow-path')
+                                                    ->extraAttributes(['wire:loading.class' => 'opacity-50'])
                                                     ->helperText('Auto-generated from title. Must match the heading ID in content.')
                                                     ->placeholder('section-anchor')
                                                     ->columnSpan(1),
