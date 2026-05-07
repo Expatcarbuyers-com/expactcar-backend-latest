@@ -12,14 +12,16 @@ class Blog extends Model
         'slug',
         'excerpt',
         'content',
+        'outline',
         'cover_image',
         'meta_title',
         'meta_description',
-        'published_at'
+        'published_at',
     ];
 
     protected $casts = [
         'published_at' => 'datetime',
+        'outline'      => 'array',
     ];
 
     public function category()

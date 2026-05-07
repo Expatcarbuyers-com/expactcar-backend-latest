@@ -5,6 +5,7 @@ namespace App\Filament\Resources\Blogs\Schemas;
 use App\Models\BlogCategory;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\FileUpload;
+use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\RichEditor;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -117,7 +118,43 @@ class BlogForm
                                     ]),
                             ]),
 
-                        // ── Tab 3: SEO ───────────────────────────────────
+                        // ── Tab 3: Outline ───────────────────────────────
+                        Tab::make('Outline')
+                            ->icon('heroicon-o-list-bullet')
+                            ->schema([
+                                Section::make('Table of Contents')
+                                    ->description('Define the sections that appear as a clickable Table of Contents at the top of the article.')
+                                    ->schema([
+                                        Repeater::make('outline')
+                                            ->label(false)
+                                            ->schema([
+                                                TextInput::make('title')
+                                                    ->required()
+                                                    ->live(onBlur: true)
+                                                    ->afterStateUpdated(fn ($state, callable $set) =>
+                                                        $set('anchor', Str::slug($state))
+                                                    )
+                                                    ->placeholder('Section heading text...')
+                                                    ->columnSpan(1),
+
+                                                TextInput::make('anchor')
+                                                    ->required()
+                                                    ->prefix('#')
+                                                    ->helperText('Auto-generated from title. Must match the heading ID in content.')
+                                                    ->placeholder('section-anchor')
+                                                    ->columnSpan(1),
+                                            ])
+                                            ->columns(2)
+                                            ->defaultItems(0)
+                                            ->addActionLabel('Add section')
+                                            ->reorderable()
+                                            ->collapsible()
+                                            ->cloneable()
+                                            ->columnSpanFull(),
+                                    ]),
+                            ]),
+
+                        // ── Tab 4: SEO ───────────────────────────────────
                         Tab::make('SEO')
                             ->icon('heroicon-o-magnifying-glass')
                             ->schema([
