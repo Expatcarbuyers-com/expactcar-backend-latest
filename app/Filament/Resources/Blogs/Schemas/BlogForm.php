@@ -45,12 +45,16 @@ class BlogForm
                         RichEditor::make('content')
                             ->required()
                             ->toolbarButtons([
+                                'attachFiles',
                                 'bold', 'italic', 'underline', 'strike',
                                 'h2', 'h3',
                                 'bulletList', 'orderedList',
                                 'blockquote', 'codeBlock',
                                 'link', 'redo', 'undo',
                             ])
+                            ->attachmentsDisk('public')
+                            ->attachmentsDirectory('blog-content')
+                            ->attachmentsVisibility('public')
                             ->columnSpanFull(),
                     ]),
 
