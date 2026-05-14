@@ -27,8 +27,11 @@ class ContactController extends Controller
         try {
             Mail::to(config('mail.admin_email', env('ADMIN_EMAIL')))
                 ->queue(new ContactInquiry($contact));
+
+            Mail::to($contact->email)
+                ->queue(new \App\Mail\ContactThankYou($contact));
         } catch (\Exception $e) {
-            Log::error('ContactInquiry mail dispatch failed', [
+            Log::error('Mail dispatch failed', [
                 'contact_id' => $contact->id,
                 'error'      => $e->getMessage(),
             ]);

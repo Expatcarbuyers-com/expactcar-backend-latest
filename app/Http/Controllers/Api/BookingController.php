@@ -24,6 +24,8 @@ class BookingController extends Controller
             'phone'           => ['required', 'string', 'max:20', 'regex:/^\+?[0-9\s\-]{7,20}$/'],
             'email'           => 'required|email:rfc,dns|max:200',
             'utm_data'        => 'nullable|array',
+            'date'            => 'nullable|date',
+            'time'            => 'nullable|string|max:50',
         ]);
 
         $variant = Variant::with('model.make')->findOrFail($validated['variant_id']);
@@ -48,15 +50,20 @@ class BookingController extends Controller
                 'ip_address'      => $request->ip(),
                 'user_agent'      => $request->userAgent(),
                 'status'          => 'pending',
+                'date'            => $validated['date'] ?? null,
+                'time'            => $validated['time'] ?? null,
             ]
         );
 
-        // Dispatch email to queue — non-blocking, won't fail the API response
+        // Dispatch emails to queue — non-blocking, won't fail the API response
         try {
             Mail::to(config('mail.admin_email', env('ADMIN_EMAIL')))
                 ->queue(new ValuationSubmitted($booking));
+
+            Mail::to($booking->email)
+                ->queue(new \App\Mail\ValuationConfirmation($booking));
         } catch (\Exception $e) {
-            Log::error('ValuationSubmitted mail dispatch failed', [
+            Log::error('Mail dispatch failed', [
                 'booking_ref' => $booking->reference_number,
                 'error'       => $e->getMessage(),
             ]);

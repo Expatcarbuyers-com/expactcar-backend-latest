@@ -30,6 +30,8 @@ class Booking extends Model
         'user_agent',
         'legacy_source_id',
         'source',
+        'date',
+        'time',
     ];
 
     protected $casts = [
