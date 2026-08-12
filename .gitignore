@@ -23,3 +23,10 @@ yarn-error.log
 /.fleet
 /.idea
 /.vscode
+
+# Local scratch space — DB dumps and connection strings live here, never commit
+/scratch/
+
+# Production env copy — contains live DB credentials. Was previously tracked;
+# untracked 2026-08-12. Transfer to the server by hand, never through git.
+/env.txt

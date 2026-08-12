@@ -2,7 +2,12 @@
 
 namespace App\Filament\Resources\Bookings\Schemas;
 
+use App\Models\Booking;
+use Filament\Actions\Action;
+use Filament\Forms\Components\Select;
+use Filament\Forms\Components\Textarea;
 use Filament\Infolists\Components\RepeatableEntry;
+use Filament\Notifications\Notification;
 use Filament\Schemas\Components\Section;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Schemas\Schema;
@@ -24,6 +29,8 @@ class BookingInfolist
                             ->fontFamily('mono')
                             ->copyable(),
 
+                        // Click the pencil beside the badge to change status without
+                        // leaving the page. BookingObserver logs it to Status Timeline.
                         TextEntry::make('status')
                             ->badge()
                             ->color(fn (string $state): string => match ($state) {
@@ -37,6 +44,33 @@ class BookingInfolist
                             })
                             ->formatStateUsing(fn (string $state): string =>
                                 BookingForm::$statuses[$state] ?? $state
+                            )
+                            ->suffixAction(
+                                Action::make('edit_status')
+                                    ->label('Change status')
+                                    ->icon('heroicon-m-pencil-square')
+                                    ->tooltip('Change status')
+                                    ->modalHeading('Change Status')
+                                    ->modalSubmitActionLabel('Save')
+                                    ->modalWidth('sm')
+                                    ->fillForm(fn (Booking $record): array => [
+                                        'status' => $record->status,
+                                    ])
+                                    ->form([
+                                        Select::make('status')
+                                            ->label('Status')
+                                            ->options(BookingForm::$statuses)
+                                            ->required()
+                                            ->native(false),
+                                    ])
+                                    ->action(function (array $data, Booking $record): void {
+                                        $record->update(['status' => $data['status']]);
+
+                                        Notification::make()
+                                            ->title('Status updated')
+                                            ->success()
+                                            ->send();
+                                    })
                             ),
 
                         TextEntry::make('assignedAgent.name')
@@ -53,7 +87,18 @@ class BookingInfolist
                     ->columns(3)
                     ->schema([
                         TextEntry::make('name'),
-                        TextEntry::make('phone')->copyable(),
+                        TextEntry::make('phone')
+                            ->copyable()
+                            ->suffixAction(
+                                Action::make('whatsapp')
+                                    ->label('WhatsApp')
+                                    ->icon('heroicon-m-chat-bubble-left-right')
+                                    ->color('success')
+                                    ->tooltip('Open chat in WhatsApp')
+                                    ->url(fn (Booking $record): ?string => BookingForm::whatsappUrl($record))
+                                    ->openUrlInNewTab()
+                                    ->visible(fn (Booking $record): bool => filled(BookingForm::whatsappNumber($record->phone)))
+                            ),
                         TextEntry::make('email')->copyable(),
                     ]),
 
@@ -66,7 +111,16 @@ class BookingInfolist
                         TextEntry::make('model_name')->label('Model'),
                         TextEntry::make('variant_name')->label('Variant'),
                         TextEntry::make('mileage')
-                            ->formatStateUsing(fn ($state) => number_format((float) ($state ?? 0)) . ' KM'),
+                            ->formatStateUsing(fn ($state): string => BookingForm::formatMileage($state)),
+                        TextEntry::make('specs')
+                            ->label('Specs')
+                            ->badge()
+                            ->color(fn (?string $state): string => match (strtoupper((string) $state)) {
+                                'GCC'     => 'success',
+                                'NON-GCC' => 'warning',
+                                default   => 'gray',
+                            })
+                            ->placeholder('Not specified'),
                     ]),
 
                 // ── Status Timeline ──────────────────────────────────────
@@ -109,14 +163,52 @@ class BookingInfolist
                     ]),
 
                 // ── Internal Notes ───────────────────────────────────────
-                Section::make('Internal Notes')
-                    ->description('Visible only to agents. Use the "Add Note" button to append entries.')
+                // Heading/description removed per client request. Notes are edited
+                // in place via the pencil beside the field; entries are append-only
+                // so one agent can never overwrite another's note.
+                Section::make()
                     ->schema([
                         TextEntry::make('internal_notes')
-                            ->label('')
-                            ->default('No notes yet.')
+                            ->label('Internal notes')
+                            ->placeholder('No notes yet.')
                             ->columnSpanFull()
-                            ->prose(),
+                            ->prose()
+                            ->suffixAction(
+                                Action::make('add_note')
+                                    ->label('Add note')
+                                    ->icon('heroicon-m-pencil-square')
+                                    ->tooltip('Add a note')
+                                    ->modalHeading('Add Internal Note')
+                                    ->modalDescription('Appended with your name and the current time. Visible only to agents.')
+                                    ->modalSubmitActionLabel('Add note')
+                                    ->modalWidth('lg')
+                                    ->form([
+                                        Textarea::make('note')
+                                            ->label('Note')
+                                            ->placeholder('Type your note here...')
+                                            ->rows(4)
+                                            ->required()
+                                            ->minLength(3)
+                                            ->maxLength(2000),
+                                    ])
+                                    ->action(function (array $data, Booking $record): void {
+                                        $entry = '[' . now()->format('d M Y, H:i') . ' — ' . auth()->user()->name . "]\n"
+                                            . $data['note'];
+
+                                        $existing = $record->internal_notes;
+
+                                        $record->update([
+                                            'internal_notes' => $existing
+                                                ? $existing . "\n\n" . $entry
+                                                : $entry,
+                                        ]);
+
+                                        Notification::make()
+                                            ->title('Note added')
+                                            ->success()
+                                            ->send();
+                                    })
+                            ),
                     ]),
 
                 // ── Tracking / UTM ───────────────────────────────────────

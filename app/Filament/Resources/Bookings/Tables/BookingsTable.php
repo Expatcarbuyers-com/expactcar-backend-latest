@@ -5,6 +5,7 @@ namespace App\Filament\Resources\Bookings\Tables;
 use App\Filament\Resources\Bookings\Schemas\BookingForm;
 use App\Models\Make;
 use App\Models\User;
+use Filament\Actions\Action;
 use Filament\Actions\BulkAction;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\ViewAction;
@@ -37,7 +38,11 @@ class BookingsTable
                 TextColumn::make('make_name')
                     ->label('Vehicle')
                     ->formatStateUsing(fn ($record) => "{$record->year} {$record->make_name} {$record->model_name}")
-                    ->description(fn ($record) => "{$record->variant_name} · " . number_format((float) ($record->mileage ?? 0)) . ' KM'),
+                    ->description(fn ($record) => collect([
+                        $record->variant_name,
+                        BookingForm::formatMileage($record->mileage),
+                        $record->specs,
+                    ])->filter()->implode(' · ')),
 
                 TextColumn::make('status')
                     ->badge()
@@ -78,6 +83,18 @@ class BookingsTable
                     ->label('Make'),
             ])
             ->recordActions([
+                // Opens the chat straight in WhatsApp (desktop app or web) so agents
+                // don't have to copy the number across by hand.
+                Action::make('whatsapp')
+                    ->label('WhatsApp')
+                    ->icon('heroicon-o-chat-bubble-left-right')
+                    ->color('success')
+                    ->tooltip('Message on WhatsApp')
+                    ->iconButton()
+                    ->url(fn ($record): ?string => BookingForm::whatsappUrl($record))
+                    ->openUrlInNewTab()
+                    ->visible(fn ($record): bool => filled(BookingForm::whatsappNumber($record->phone))),
+
                 ViewAction::make(),
             ])
             ->toolbarActions([
@@ -122,7 +139,7 @@ class BookingsTable
 
                                 fputcsv($handle, [
                                     'Reference #', 'Name', 'Phone', 'Email',
-                                    'Year', 'Make', 'Model', 'Variant', 'Mileage (KM)',
+                                    'Year', 'Make', 'Model', 'Variant', 'Mileage (KM)', 'Specs',
                                     'Status', 'Agent', 'Submitted At',
                                 ]);
 
@@ -137,6 +154,7 @@ class BookingsTable
                                         $r->model_name,
                                         $r->variant_name,
                                         $r->mileage,
+                                        $r->specs,
                                         BookingForm::$statuses[$r->status] ?? $r->status,
                                         $r->assignedAgent?->name ?? '—',
                                         $r->created_at->format('Y-m-d H:i:s'),
