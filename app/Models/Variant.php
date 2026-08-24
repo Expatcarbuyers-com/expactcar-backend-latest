@@ -44,7 +44,10 @@ class Variant extends Model
 
     public function scopeActive($query)
     {
-        return $query->where('is_active', true);
+        // Qualified with the table name — see CarModel::scopeActive for why
+        // an unqualified column here breaks once this scope is used in a
+        // query joined against another table that also has is_active.
+        return $query->where('variants.is_active', true);
     }
 
     // ── Scout ────────────────────────────────────────────────

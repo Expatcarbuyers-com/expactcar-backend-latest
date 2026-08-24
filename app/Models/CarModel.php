@@ -45,6 +45,9 @@ class CarModel extends Model
 
     public function scopeActive($query)
     {
-        return $query->where('is_active', true);
+        // Qualified with the table name: unqualified 'is_active' is ambiguous
+        // once this scope is used on a query joined to variants (which also
+        // has an is_active column), and Postgres rejects it outright.
+        return $query->where('car_models.is_active', true);
     }
 }
