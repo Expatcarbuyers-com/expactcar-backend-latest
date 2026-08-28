@@ -3,7 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Mail\ValuationSubmitted;
+use App\Mail\ValuationConfirmation;
 use App\Models\Booking;
 use App\Models\Variant;
 use App\Rules\Recaptcha;
@@ -57,23 +57,10 @@ class BookingController extends Controller
             ]
         );
 
-        // 1. Dispatch Admin Notification
-        try {
-            $adminEmail = config('mail.admin_email') ?: env('ADMIN_EMAIL');
-            if ($adminEmail) {
-                Mail::to($adminEmail)->send(new ValuationSubmitted($booking));
-            }
-        } catch (\Throwable $e) {
-            Log::error('Admin notification mail failed', [
-                'booking_ref' => $booking->reference_number,
-                'error'       => $e->getMessage(),
-            ]);
-        }
-
-        // 2. Dispatch Customer Confirmation
+        // Dispatch Customer Confirmation Email
         try {
             if (!empty($booking->email)) {
-                Mail::to($booking->email)->send(new \App\Mail\ValuationConfirmation($booking));
+                Mail::to($booking->email)->send(new ValuationConfirmation($booking));
             }
         } catch (\Throwable $e) {
             Log::error('Customer confirmation mail failed', [

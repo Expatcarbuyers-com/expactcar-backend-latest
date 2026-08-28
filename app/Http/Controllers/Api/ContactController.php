@@ -26,7 +26,7 @@ class ContactController extends Controller
 
         $contact = Contact::create($validated);
 
-        // 1. Dispatch Admin Notification
+        // Dispatch Admin Inquiry Notification Email
         try {
             $adminEmail = config('mail.admin_email') ?: env('ADMIN_EMAIL');
             if ($adminEmail) {
@@ -35,19 +35,6 @@ class ContactController extends Controller
         } catch (\Throwable $e) {
             Log::error('Admin contact inquiry mail failed', [
                 'contact_id' => $contact->id,
-                'error'      => $e->getMessage(),
-            ]);
-        }
-
-        // 2. Dispatch Customer Thank You
-        try {
-            if (!empty($contact->email)) {
-                Mail::to($contact->email)->send(new \App\Mail\ContactThankYou($contact));
-            }
-        } catch (\Throwable $e) {
-            Log::error('Customer contact thank you mail failed', [
-                'contact_id' => $contact->id,
-                'email'      => $contact->email,
                 'error'      => $e->getMessage(),
             ]);
         }
