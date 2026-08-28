@@ -62,7 +62,7 @@ class CarController extends Controller
             ->orderBy('makes.display_order')
             ->orderBy('makes.name')
             ->distinct()
-            ->get(['makes.id', 'makes.name', 'makes.slug', 'makes.logo_url']);
+            ->get(['makes.id', 'makes.name', 'makes.slug', 'makes.logo_url', 'makes.display_order']);
     }
 
     private function modelsForMake(int $makeId, ?string $year): \Illuminate\Support\Collection

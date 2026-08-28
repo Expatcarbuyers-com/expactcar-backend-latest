@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Mail\ValuationSubmitted;
 use App\Models\Booking;
 use App\Models\Variant;
+use App\Rules\Recaptcha;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -16,13 +17,14 @@ class BookingController extends Controller
     public function store(Request $request): JsonResponse
     {
         $validated = $request->validate([
+            'recaptcha_token' => ['required', 'string', new Recaptcha('valuation_submit')],
             'variant_id'      => 'required|integer|exists:variants,id',
             'mileage'         => 'required|string|max:100',
             'specs'           => 'required|string|max:50',
 
             'name'            => 'required|string|max:150',
             'phone'           => ['required', 'string', 'max:20', 'regex:/^\+?[0-9\s\-]{7,20}$/'],
-            'email'           => 'required|email:rfc,dns|max:200',
+            'email'           => 'required|email:rfc|max:200',
             'utm_data'        => 'nullable|array',
             'date'            => 'nullable|date',
             'time'            => 'nullable|string|max:50',
@@ -55,16 +57,28 @@ class BookingController extends Controller
             ]
         );
 
-        // Dispatch emails to queue — non-blocking, won't fail the API response
+        // 1. Dispatch Admin Notification
         try {
-            Mail::to(config('mail.admin_email', env('ADMIN_EMAIL')))
-                ->queue(new ValuationSubmitted($booking));
-
-            Mail::to($booking->email)
-                ->queue(new \App\Mail\ValuationConfirmation($booking));
-        } catch (\Exception $e) {
-            Log::error('Mail dispatch failed', [
+            $adminEmail = config('mail.admin_email') ?: env('ADMIN_EMAIL');
+            if ($adminEmail) {
+                Mail::to($adminEmail)->send(new ValuationSubmitted($booking));
+            }
+        } catch (\Throwable $e) {
+            Log::error('Admin notification mail failed', [
                 'booking_ref' => $booking->reference_number,
+                'error'       => $e->getMessage(),
+            ]);
+        }
+
+        // 2. Dispatch Customer Confirmation
+        try {
+            if (!empty($booking->email)) {
+                Mail::to($booking->email)->send(new \App\Mail\ValuationConfirmation($booking));
+            }
+        } catch (\Throwable $e) {
+            Log::error('Customer confirmation mail failed', [
+                'booking_ref' => $booking->reference_number,
+                'email'       => $booking->email,
                 'error'       => $e->getMessage(),
             ]);
         }
