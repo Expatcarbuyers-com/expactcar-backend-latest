@@ -4,7 +4,6 @@ use App\Http\Controllers\Api\BlogController;
 use App\Http\Controllers\Api\BookingController;
 use App\Http\Controllers\Api\BranchController;
 use App\Http\Controllers\Api\CarController;
-use App\Http\Controllers\Api\ContactController;
 use App\Http\Controllers\Api\RedirectController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -42,7 +41,6 @@ Route::prefix('v1')->middleware('throttle:60,1')->group(function () {
     // ── Lead Submissions (increased to 60 per minute for testing) ─────────
     Route::middleware('throttle:60,1')->group(function () {
         Route::post('/bookings', [BookingController::class, 'store']);
-        Route::post('/contacts', [ContactController::class, 'store']);
     });
 });
 
