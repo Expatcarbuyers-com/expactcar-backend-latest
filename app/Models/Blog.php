@@ -24,6 +24,23 @@ class Blog extends Model
         'outline'      => 'array',
     ];
 
+    protected $appends = [
+        'cover_image_url',
+    ];
+
+    public function getCoverImageUrlAttribute(): ?string
+    {
+        if (! $this->cover_image) {
+            return null;
+        }
+
+        if (str_starts_with($this->cover_image, 'http://') || str_starts_with($this->cover_image, 'https://')) {
+            return $this->cover_image;
+        }
+
+        return asset('storage/' . ltrim($this->cover_image, '/'));
+    }
+
     public function category()
     {
         return $this->belongsTo(BlogCategory::class, 'category_id');

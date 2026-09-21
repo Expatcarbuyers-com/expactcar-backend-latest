@@ -110,10 +110,13 @@ class BlogForm
                                         FileUpload::make('cover_image')
                                             ->label(false)
                                             ->image()
+                                            ->disk('public')
                                             ->directory('blog-covers')
+                                            ->visibility('public')
+                                            ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp', 'image/gif'])
+                                            ->maxSize(10240)
                                             ->imageEditor()
                                             ->imageEditorAspectRatios(['16:9', '4:3', '1:1'])
-                                            ->maxSize(4096)
                                             ->columnSpanFull(),
                                     ]),
                             ]),
