@@ -34,9 +34,13 @@ class BlogForm
                                     ->required()
                                     ->maxLength(255)
                                     ->live(onBlur: true)
-                                    ->afterStateUpdated(fn ($state, callable $set) =>
-                                        $set('slug', Str::slug($state))
-                                    )
+                                    // Only auto-generate the slug for new posts. On a published post,
+                                    // changing the title must not silently change its live URL.
+                                    ->afterStateUpdated(function ($state, callable $set, string $operation) {
+                                        if ($operation === 'create') {
+                                            $set('slug', Str::slug($state));
+                                        }
+                                    })
                                     ->placeholder('Enter article title...')
                                     ->columnSpanFull(),
 
@@ -45,7 +49,7 @@ class BlogForm
                                     ->unique(ignoreRecord: true)
                                     ->maxLength(255)
                                     ->prefix('blog/')
-                                    ->helperText('Auto-generated from title. Edit to customise the URL.')
+                                    ->helperText('Auto-generated from title for new posts. Changing it on a published post changes its live URL.')
                                     ->columnSpanFull(),
 
                                 Textarea::make('excerpt')
@@ -100,7 +104,7 @@ class BlogForm
 
                                         DateTimePicker::make('published_at')
                                             ->label('Publish Date')
-                                            ->helperText('Leave empty to save as a draft.')
+                                            ->helperText('Leave empty to save as a draft. Times are Dubai time (GST) — a future time keeps the post hidden until then.')
                                             ->native(false),
                                     ]),
 

@@ -11,7 +11,16 @@ use Illuminate\Support\Facades\Cache;
 
 class BlogController extends Controller
 {
-    private const TTL = 3600; // 1 hour
+    // Edits are picked up instantly via blog_version (BlogCacheObserver); the TTL only
+    // bounds how late a post scheduled for a future published_at appears.
+    private const TTL = 300; // 5 minutes
+
+    private function key(string $name): string
+    {
+        $version = (int) Cache::get('blog_version', 1);
+
+        return "blogs:v{$version}:{$name}";
+    }
 
     // ── GET /api/v1/blogs?page=&category= ───────────────────
 
@@ -26,7 +35,7 @@ class BlogController extends Controller
         $page     = (int) $request->query('page', 1);
         $category = $request->query('category');
         $perPage  = (int) $request->query('per_page', 10);
-        $cacheKey = "blogs:p{$page}:pp{$perPage}:cat:" . ($category ?? 'all');
+        $cacheKey = $this->key("p{$page}:pp{$perPage}:cat:" . ($category ?? 'all'));
 
         $data = Cache::remember($cacheKey, self::TTL, function () use ($category, $perPage) {
             $query = Blog::published()
@@ -49,7 +58,7 @@ class BlogController extends Controller
 
     public function show(string $slug): JsonResponse
     {
-        $cacheKey = "blog:{$slug}";
+        $cacheKey = $this->key("post:{$slug}");
 
         $blog = Cache::remember($cacheKey, self::TTL, function () use ($slug) {
             return Blog::where('slug', $slug)
@@ -69,7 +78,7 @@ class BlogController extends Controller
 
     public function categories(): JsonResponse
     {
-        $data = Cache::remember('blog:categories', self::TTL, function () {
+        $data = Cache::remember($this->key('categories'), self::TTL, function () {
             return BlogCategory::withCount(['blogs' => fn ($q) => $q->published()])
                 ->having('blogs_count', '>', 0)
                 ->orderBy('name')

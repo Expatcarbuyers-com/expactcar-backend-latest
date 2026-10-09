@@ -2,10 +2,13 @@
 
 namespace App\Providers;
 
+use App\Models\Blog;
+use App\Models\BlogCategory;
 use App\Models\Booking;
 use App\Models\CarModel;
 use App\Models\Make;
 use App\Models\Variant;
+use App\Observers\BlogCacheObserver;
 use App\Observers\BookingObserver;
 use App\Observers\CarModelObserver;
 use App\Observers\CatalogCacheObserver;
@@ -48,5 +51,9 @@ class AppServiceProvider extends ServiceProvider
         Make::observe(CatalogCacheObserver::class);
         CarModel::observe(CatalogCacheObserver::class);
         Variant::observe(CatalogCacheObserver::class);
+
+        // Blog cache busting (increments blog_version on any blog/category change)
+        Blog::observe(BlogCacheObserver::class);
+        BlogCategory::observe(BlogCacheObserver::class);
     }
 }
